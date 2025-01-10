@@ -87,6 +87,8 @@ class MainWindow(QMainWindow):
         lesson = self.widgets["directory_explorer"].get_folder_selection()
         if lesson and ".lesson" in os.listdir(lesson):
             self.fill_layout(lesson)
+        elif lesson and ".lesson" not in os.listdir(lesson):
+            print("Folder does not have a .lesson!")
         else:
             print("No folder selected!")
 
@@ -105,8 +107,6 @@ class MainWindow(QMainWindow):
         if audio_file:
             audio_file = os.path.abspath(os.path.join(folder, audio_file))
             self.widgets["audio_player"].open_file(QUrl.fromLocalFile(audio_file))
-        else:
-            return None
         
         pdf_file = _get_file_with_extensions(files, [".pdf"])
         if pdf_file:

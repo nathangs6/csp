@@ -1,5 +1,5 @@
 from PyQt6.QtCore import Qt, QTimer, QTime, QDir, QModelIndex
-from PyQt6.QtGui import QImage, QPixmap, QFileSystemModel
+from PyQt6.QtGui import QImage, QPixmap, QFileSystemModel, QFont
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtWidgets import (
     QLabel,
@@ -13,6 +13,8 @@ from PyQt6.QtWidgets import (
     QTreeView
 )
 import fitz
+from utils import convert_to_pinyin
+import codecs
 
 
 class StaticLeafFileSystemModel(QFileSystemModel):
@@ -42,6 +44,9 @@ class DirectoryExplorer(QWidget):
         self.tree_view = QTreeView()
         self.tree_view.setModel(self.file_system_model)
         self.tree_view.setRootIndex(self.file_system_model.index(QDir.rootPath()))
+        self.tree_view.setColumnHidden(1, True)
+        self.tree_view.setColumnHidden(2, True)
+        self.tree_view.setColumnHidden(3, True)
 
         self.open_lesson_button = QPushButton("Open Lesson")
         self.make_lesson_button = QPushButton("Make Lesson")
@@ -221,31 +226,47 @@ class TextFileWidget(QWidget):
     """
     Widget for interacting with text.
     """
-    def __init__(self, editable):
+    def __init__(self, chinese=True, editable=True, allow_pinyin=True):
         super().__init__()
 
+        self.chinese = True
         self.editable = editable
+        self.allow_pinyin = allow_pinyin
         self.file_path = None
 
         layout = QVBoxLayout(self)
         self.text_edit = QTextEdit()
-        
+        self.curr_font = ""
+        self.switch_font()
+        layout.addWidget(self.text_edit, 9)
+
+        button_layout = QHBoxLayout()
+        if chinese:
+            self.switch_font_button = QPushButton("Switch Font")
+            self.switch_font_button.clicked.connect(self.switch_font)
+            button_layout.addWidget(self.switch_font_button)
+
         if editable:
             self.save_button = QPushButton("Save File")
             self.save_button.clicked.connect(self.save_file)
             if not self.file_path:
                 self.save_button.setEnabled(False)
-            layout.addWidget(self.text_edit, 9)
-            layout.addWidget(self.save_button, 1)
+            button_layout.addWidget(self.save_button)
         else:
             self.text_edit.setReadOnly(True)
-            layout.addWidget(self.text_edit)
 
+        if self.allow_pinyin:
+            self.pinyin_button = QPushButton("Convert Pinyin")
+            self.pinyin_button.clicked.connect(self.convert_to_pinyin)
+            button_layout.addWidget(self.pinyin_button)
+
+        if chinese or editable or allow_pinyin:
+            layout.addLayout(button_layout, 1)
         self.setLayout(layout)
     
     def open_file(self, file_path):
         if file_path:
-            with open(file_path, 'r') as file:
+            with codecs.open(file_path, 'r', encoding='utf-8') as file:
                 content = file.read()
                 self.text_edit.setPlainText(content)
             self.file_path = file_path
@@ -254,9 +275,24 @@ class TextFileWidget(QWidget):
 
     def save_file(self):
         if self.file_path:
-            with open(self.file_path, 'w') as file:
+            with codecs.open(self.file_path, 'w', encoding='utf-8') as file:
                 content = self.text_edit.toPlainText()
                 file.write(content)
+    
+    def switch_font(self):
+        if self.curr_font == "KaiTi":
+            font = QFont("Arial", 16)
+            self.curr_font = "Arial"
+        else:
+            font = QFont("KaiTi", 16)
+            self.curr_font = "KaiTi"
+        self.text_edit.setFont(font)
+
+
+    def convert_to_pinyin(self):
+        content = self.text_edit.toPlainText()
+        new_content = convert_to_pinyin(content)
+        self.text_edit.setText(new_content)
 
 
 class StopwatchWithLog(QWidget):
@@ -292,7 +328,7 @@ class StopwatchWithLog(QWidget):
         self.log_label = QLabel("Log")
         self.log_label.setStyleSheet("font-size: 24px;")
         self.log_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.log = TextFileWidget(False)
+        self.log = TextFileWidget(False, False, False)
 
         layout = QVBoxLayout(self)
         self.stopwatch_layout = QVBoxLayout()
